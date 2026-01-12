@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Silent Music Visualizer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    html, body { margin: 0; padding: 0; overflow: hidden; background: black; }
+    canvas { display: block; }
+  </style>
+</head>
+<body>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.6.0/p5.min.js"></script>
+<script>
+let circles = [];
+let ribbons = [];
+let particles = [];
+let layers = 3;
+let numParticles = 80;
+let time = 0;
+let vibe = 1;
+let beatTime = 0;
+let autoMode = false;
+
+function setup() {
+  createCanvas(windowWidth, windowHeight);
+  noStroke();
+  initCircles();
+  initRibbons();
+  initParticles();
+  background(0);
+  textFont('Arial');
+}
+
+function draw() {
+  let dt = deltaTime / 1000;
+  time += dt;
+  beatTime += dt;
+
+  if (beatTime >= 60 / getBPM(vibe)) {
+    triggerBeat();
+    beatTime = 0;
+  }
+
+  fill(0, 25);
+  rect(0, 0, width, height);
+
+  drawRibbons(time, vibe);
+  drawCircles(time, vibe);
+  drawParticles(vibe);
+
+  drawInstructions();
+
+  if(autoMode) autoSwitchVibe();
+}
+
+// --------- Initialization ---------
+function initCircles() {
+  for (let l = 0; l < layers; l++) {
+    circles[l] = [];
+    for (let i = 0; i < 6 + l * 3; i++) {
+      circles[l].push({
+        x: random(width),
+        y: random(height),
+        baseRadius: random(30 + l * 20, 60 + l * 30),
+        phase: random(TWO_PI)
+      });
+    }
+  }
+}
+
+function initRibbons() {
+  for (let l = 0; l < 3; l++) {
+    ribbons[l] = [];
+    for (let x = 0; x < width; x += 20) {
+      ribbons[l].push({
+        x: x,
+        y: height / 2 + l * 20 + sin(x * 0.05) * 30,
+        phase: random(TWO_PI)
+      });
+    }
+  }
+}
+
+function initParticles() {
+  for (let i = 0; i < numParticles; i++) {
+    particles.push({
+      x: random(width),
+      y: random(height),
+      size: random(2, 6),
+      speed: random(0.2, 1),
+      alpha: random(50, 150)
+    });
+  }
+}
+
+// --------- Drawing Functions ---------
+function drawCircles(t, vibe) {
+  for (let l = 0; l < layers; l++) {
+    for (let c of circles[l]) {
+      let pulseSpeed = 1 + vibe * 0.5 + l * 0.2;
+      // TEMPORARY PULSE: oscillates around baseRadius, never grows permanently
+      let pulse = 1 + 0.2 * sin(t * pulseSpeed + c.phase); 
+      let col = getCircleColor(vibe, l);
+      fill(red(col), green(col), blue(col), 50);
+      ellipse(c.x, c.y, c.baseRadius * pulse, c.baseRadius * pulse);
+    }
+  }
+}
+
+function drawRibbons(t, vibe) {
+  for (let l = 0; l < ribbons.length; l++) {
+    strokeWeight(2);
+    noFill();
+    beginShape();
+    for (let pt of ribbons[l]) {
+      let beatAmplitude = sin(time * 2 + pt.phase) * (10 + vibe * 10) * (1 + 0.3 * sin(time * 5));
+      let y = pt.y + beatAmplitude;
+      let col = getRibbonColor(vibe, l);
+      stroke(red(col), green(col), blue(col), 120);
+      vertex(pt.x, y);
+    }
+    endShape();
+  }
+}
+
+function drawParticles(vibe) {
+  let beat = sin(time * 3);
+  for (let p of particles) {
+    fill(255, p.alpha);
+    noStroke();
+    ellipse(p.x, p.y, p.size);
+    p.y -= p.speed * (0.5 + vibe * 0.3);
+    if (beat > 0.9 && frameCount % 5 === 0) {
+      p.x += random(-3, 3);
+      p.y += random(-3, 3);
+    }
+    if (p.y < 0) {
+      p.y = height;
+      p.x = random(width);
+    }
+  }
+}
+
+// --------- Color Functions ---------
+function getCircleColor(vibe, layer) {
+  if (vibe === 1) return color(255, 200, 150);
+  if (vibe === 2) return color(100, 220, 200);
+  if (vibe === 3) return color(0, 255, 255);
+}
+
+function getRibbonColor(vibe, layer) {
+  if (vibe === 1) return color(255, 180, 150);
+  if (vibe === 2) return color(100, 200, 220);
+  if (vibe === 3) return color(0, 255, 255);
+}
+
+// --------- Instructions ---------
+function drawInstructions() {
+  fill(255, 180);
+  noStroke();
+  textSize(16);
+  textAlign(LEFT, BOTTOM);
+  text("Press 1/2/3 to change vibes | Click/Tap to interact | Press 4 for auto-cycle", 20, height - 20);
+}
+
+// --------- Interaction ---------
+function mousePressed() {
+  for (let i = 0; i < 30; i++) {
+    particles.push({
+      x: mouseX + random(-20, 20),
+      y: mouseY + random(-20, 20),
+      size: random(4, 10),
+      speed: random(1, 5),
+      alpha: random(100, 200)
+    });
+  }
+}
+
+function keyPressed() {
+  if (key === '1') { vibe = 1; autoMode = false; }
+  if (key === '2') { vibe = 2; autoMode = false; }
+  if (key === '3') { vibe = 3; autoMode = false; }
+  if (key === '4') { autoMode = !autoMode; } // toggle auto-cycle
+}
+
+// --------- Beat ---------
+function triggerBeat() {
+  // no longer permanently increases baseRadius
+}
+
+// --------- BPM per Vibe ---------
+function getBPM(v) {
+  if (v === 1) return 60;
+  if (v === 2) return 40;
+  if (v === 3) return 120;
+}
+
+// --------- Auto-Switch Vibe ---------
+function autoSwitchVibe() {
+  if (frameCount % (60 * 5) === 0) {
+    vibe = vibe % 3 + 1;
+  }
+}
+
+// --------- Responsive Canvas ---------
+function windowResized() {
+  resizeCanvas(windowWidth, windowHeight);
+}
+</script>
+</body>
+</html>
